@@ -1,0 +1,15 @@
+{
+  "dataset": "PFE \u2014 dataset interne",
+  "seuils": {
+    "IF": 0.5681626291315288,
+    "AE": 1.3017726240714877,
+    "LSTM": 1.6655733760040172,
+    "DBSCAN": 3.7312494147283353
+  },
+  "metriques": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "pr_auc": 0.0
+  }
+}

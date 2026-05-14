@@ -1,0 +1,17 @@
+# Données sensibles
+kaggle.json
+mlflow.db
+*.pkl
+*.keras
+*.csv
+*.zip
+drift_history.json
+retrain_log.json
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Streamlit
+.streamlit/secrets.toml
