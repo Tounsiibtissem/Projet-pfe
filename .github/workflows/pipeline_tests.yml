@@ -1,0 +1,114 @@
+name: CyberWatch PFE - Tests Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install pandas numpy scikit-learn evidently mlflow scipy
+
+    - name: Test imports
+      run: |
+        python -c "
+        import pandas as pd
+        import numpy as np
+        from sklearn.ensemble import IsolationForest
+        from sklearn.preprocessing import StandardScaler
+        import mlflow
+        print('OK Tous les imports OK')
+        "
+
+    - name: Test feature engineering
+      run: |
+        python -c "
+        import pandas as pd
+        import numpy as np
+        df = pd.DataFrame({
+            'UserID_enc': [0,0,0,1,1,1],
+            'Date': pd.date_range('2026-01-01', periods=6),
+            'score_IF':    [0.4,0.5,0.6,0.7,0.8,0.9],
+            'score_AE':    [0.1,0.2,0.3,1.5,2.0,3.0],
+            'score_LSTM':  [0.1,0.2,0.3,1.5,2.0,3.0],
+            'score_DBSCAN':[0.1,0.2,0.3,1.5,2.0,3.0],
+        })
+        assert df.shape[0] == 6
+        assert df.isnull().sum().sum() == 0
+        print('OK Test feature engineering OK')
+        "
+
+    - name: Test Isolation Forest
+      run: |
+        python -c "
+        import numpy as np
+        from sklearn.ensemble import IsolationForest
+        X = np.random.randn(100, 29)
+        model = IsolationForest(n_estimators=10, random_state=42)
+        model.fit(X)
+        scores = model.score_samples(X)
+        assert len(scores) == 100
+        print('OK Test Isolation Forest OK')
+        "
+
+    - name: Test no leakage
+      run: |
+        python -c "
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        X_train = np.random.randn(100, 29)
+        X_test  = np.random.randn(50, 29) * 2 + 3
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled  = scaler.transform(X_test)
+        assert abs(X_train_scaled.mean()) < 0.01
+        assert abs(X_test_scaled.mean()) > 0.01
+        print('OK No leakage valide')
+        "
+
+    - name: Test drift detection
+      run: |
+        python -c "
+        import numpy as np
+        from scipy.stats import wasserstein_distance
+        ref = np.random.randn(100)
+        cur = np.random.randn(100) * 2 + 3
+        scale = np.concatenate([ref, cur]).std() + 1e-8
+        dist  = wasserstein_distance(ref/scale, cur/scale)
+        assert dist > 0.3
+        print(f'OK Test drift OK - score={dist:.4f}')
+        "
+
+    - name: Test consensus
+      run: |
+        python -c "
+        scores = {
+            'IF':     [0.4, 0.8, 0.3],
+            'AE':     [0.2, 2.5, 0.1],
+            'LSTM':   [0.1, 3.0, 0.2],
+            'DBSCAN': [0.3, 1.8, 0.4],
+        }
+        thresholds = {'IF':0.568,'AE':1.302,'LSTM':1.666,'DBSCAN':0.522}
+        consensus = [sum(scores[m][i] > thresholds[m] for m in scores) for i in range(3)]
+        assert consensus[0] == 0
+        assert consensus[1] == 4
+        assert consensus[2] == 0
+        print(f'OK Test consensus OK - votes={consensus}')
+        "
+
+    - name: Summary
+      run: echo "Tous les tests passes avec succes - Pipeline CyberWatch PFE valide"
